@@ -13,6 +13,7 @@ import java.util.Map;
 public abstract class AbstractDataParticle {
     @Transient
     public static final long NTP_UNIX_DELTA_SECONDS = 2208988800l;
+    public static long lasttime = 0;
 
     @PartitionKey(0)
     protected String refdesig;
@@ -21,7 +22,7 @@ public abstract class AbstractDataParticle {
     @PartitionKey(2)
     protected int jday;
     @ClusteringColumn
-    protected double time;
+    protected long time;
 
     private double driver_timestamp;
     private double ingestion_timestamp;
@@ -37,7 +38,7 @@ public abstract class AbstractDataParticle {
             if (preferred == null) {
                 throw new Exception("Unable to retrieve preferred timestamp");
             }
-            time = (double) preferred;
+            time = (long) ((double)preferred * 1000000000);
             GregorianCalendar cal = new GregorianCalendar();
             cal.setTimeInMillis(sensorNTPToUnix(time));
             year = cal.get(Calendar.YEAR);
@@ -59,15 +60,16 @@ public abstract class AbstractDataParticle {
     }
 
     public void fill() {
-        long now = System.currentTimeMillis();
         GregorianCalendar cal = new GregorianCalendar();
         year = cal.get(Calendar.YEAR);
         jday = cal.get(Calendar.DAY_OF_YEAR);
         refdesig = "TEST";
-        time = ((double)now / 1000);
+
+        time = lasttime;
+        while (time == lasttime)
+            time = System.nanoTime();
+        lasttime = time;
         preferred_timestamp = "internal_timestamp";
-        internal_timestamp = time;
-        driver_timestamp = time;
     }
 
     public abstract String toJson();
@@ -100,11 +102,11 @@ public abstract class AbstractDataParticle {
         this.jday = jday;
     }
 
-    public double getTime() {
+    public long getTime() {
         return time;
     }
 
-    public void setTime(double time) {
+    public void setTime(long time) {
         this.time = time;
     }
 

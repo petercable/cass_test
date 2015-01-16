@@ -49,7 +49,7 @@ public class SimpleClient {
         row.getString("refdesig");
         row.getInt("year");
         row.getInt("jday");
-        row.getDouble("time");
+        row.getLong("time");
         row.getInt("conductivity");
         row.getInt("ctd_time");
         row.getDouble("driver_timestamp");
@@ -63,7 +63,11 @@ public class SimpleClient {
 
     private void logElapsed(long count) {
         timer.stop();
-        long rate = count * 1000 / timer.elapsed(TimeUnit.MILLISECONDS);
+        long elapsed = timer.elapsed(TimeUnit.MILLISECONDS);
+        long rate = 0;
+        if (elapsed > 0)
+            rate = count * 1000 / elapsed;
+
         log.info("Done iterating resultset, count: " + count + " elapsed: " + timer + " rate: " + rate + "/s");
         timer.reset();
     }
@@ -196,7 +200,7 @@ public class SimpleClient {
     }
 
     public void storeParticlesSync(List<CtdbpCdefCpInstrumentRecovered> particles) {
-        log.info("");
+        log.info("store sync");
         timer.start();
         Mapper<CtdbpCdefCpInstrumentRecovered> mapper = new MappingManager(session).mapper(CtdbpCdefCpInstrumentRecovered.class);
         for (CtdbpCdefCpInstrumentRecovered particle: particles) {
@@ -205,7 +209,29 @@ public class SimpleClient {
         logElapsed(particles.size());
     }
 
-    public void storeParticleAsync(List<CtdbpCdefCpInstrumentRecovered> particles) {
-
+    public void storeParticleAsync(List<CtdbpCdefCpInstrumentRecovered> particles, int maxFutures) {
+        log.info("store async");
+        timer.start();
+        List<ListenableFuture> futures = new ArrayList<>();
+        Mapper<CtdbpCdefCpInstrumentRecovered> mapper = new MappingManager(session).mapper(CtdbpCdefCpInstrumentRecovered.class);
+        for (CtdbpCdefCpInstrumentRecovered particle: particles) {
+            futures.add(mapper.saveAsync(particle));
+            if (futures.size() > maxFutures) {
+                ListenableFuture f = futures.remove(0);
+                try {
+                    f.get();
+                } catch (InterruptedException | ExecutionException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        for (ListenableFuture f: futures) {
+            try {
+                f.get();
+            } catch (InterruptedException | ExecutionException e) {
+                e.printStackTrace();
+            }
+        }
+        logElapsed(particles.size());
     }
 }

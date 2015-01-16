@@ -13,7 +13,7 @@ public class CtdbpCdefCpInstrumentRecovered extends AbstractDataParticle {
     @PartitionKey(2)
     protected int jday;
     @ClusteringColumn
-    protected double time;
+    protected long time;
     private double driver_timestamp;
     private double ingestion_timestamp;
     private double internal_timestamp;
